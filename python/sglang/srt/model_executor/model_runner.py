@@ -368,6 +368,8 @@ class ModelRunner:
             max_num_reqs = min(
                 max(
                     int(
+                        # Here 512 means the factor that how much the prefix could be shared
+                        # 512/5120 ~ 512/2048
                         self.max_total_num_tokens / self.model_config.context_len * 512
                     ),
                     2048,
@@ -379,6 +381,7 @@ class ModelRunner:
             max_num_reqs,
             self.model_config.context_len + 8,
         )
+
         if (
             self.model_config.attention_arch == AttentionArch.MLA
             and self.server_args.enable_mla
@@ -401,6 +404,7 @@ class ModelRunner:
                 head_dim=self.model_config.head_dim,
                 layer_num=self.model_config.num_hidden_layers,
             )
+
         logger.info(
             f"Memory pool end. "
             f"avail mem={get_available_gpu_memory(self.gpu_id):.2f} GB"
@@ -539,6 +543,11 @@ class ModelRunner:
             batch,
             forward_mode=ForwardMode.EXTEND,
         )
+        print("==========================================")
+        logger.info(f"forward prefill called on {batch.input_ids} samples")
+        print('------------------------------------------')
+        logger.info(f"forward metadata: {input_metadata}")
+        print("==========================================")
         if self.is_generation:
             return self.model.forward(
                 batch.input_ids, input_metadata.positions, input_metadata

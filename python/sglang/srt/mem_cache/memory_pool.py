@@ -91,10 +91,13 @@ class BaseTokenToKVPool(ABC):
 
         addition_size = need_size - buffer_len
         alloc_size = max(addition_size, self.prefetch_chunk_size)
+
+        # Select available kv slots' indexes
         select_index = (
             torch.nonzero(self.mem_state).squeeze(1)[:alloc_size].to(torch.int32)
         )
 
+        # No enough available kv cache
         if select_index.shape[0] < addition_size:
             return None
 

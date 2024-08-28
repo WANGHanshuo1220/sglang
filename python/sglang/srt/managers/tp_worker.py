@@ -223,12 +223,14 @@ class ModelTpServer:
         self.new_token_ratio_decay = global_config.new_token_ratio_decay
 
     def exposed_step(self, recv_reqs: List):
+        # recv_reqs are all received from clients (must be to-prefill requests)
         try:
             # Recv requests
             for recv_req in recv_reqs:
                 if isinstance(
                     recv_req, (TokenizedGenerateReqInput, TokenizedEmbeddingReqInput)
                 ):
+                    # Preprocessing prefill requests and add it to waiting queue
                     self.handle_generate_request(recv_req)
                 elif isinstance(recv_req, FlushCacheReq):
                     self.flush_cache()
@@ -253,6 +255,13 @@ class ModelTpServer:
 
     @torch.inference_mode()
     def forward_step(self):
+        """ First check if there are new prefill requests.
+
+        Note that new_batch requests will be added to self.running_batch
+        after being prefilled and llm model has maximum batch size, so
+        get_new_prefill_batch() will take this into consideration which means
+        current len(self.running_batch) + len(new_batch) <= self.max_batch_size
+        """
         new_batch = self.get_new_prefill_batch()
 
         if new_batch is not None:
@@ -406,6 +415,7 @@ class ModelTpServer:
         # Get priority queue
         prefix_computed = self.scheduler.calc_priority(self.waiting_queue)
 
+        # Num of decode tokens (=len(self.running_batch))
         num_mixed_running = running_bs if self.is_mixed_chunk else 0
 
         adder = PrefillAdder(

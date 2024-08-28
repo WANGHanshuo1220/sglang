@@ -25,9 +25,9 @@ python -m sglang.launch_server \
 echo "Run sgalng server in the background"
 
 # Run sglang server benchmark
-RANDOM_INPUT=1024
-RANDOM_OUTPUT=1024
-NUM_PROMPTS=10
+RANDOM_INPUT=64
+RANDOM_OUTPUT=64
+NUM_PROMPTS=1
 QPS=1
 FILE="/root/ShareGPT_V3_unfiltered_cleaned_split.json"
 

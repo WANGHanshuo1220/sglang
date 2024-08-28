@@ -673,6 +673,10 @@ async def v1_completions(tokenizer_manager, raw_request: Request):
     request_json = await raw_request.json()
     all_requests = [CompletionRequest(**request_json)]
     adapted_request, request = v1_generate_request(all_requests)
+    print("In v1_completions:")
+    print("     all_requests = ", all_requests)
+    print("     adapted_request = ", adapted_request)
+    print("     request = ", request)
 
     if adapted_request.stream:
 

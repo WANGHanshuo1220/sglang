@@ -129,10 +129,12 @@ class RadixCache(BasePrefixCache):
         kv_indices = self.req_to_token_pool.req_to_token[
             req.req_pool_idx, : len(token_ids)
         ]
+        print(f"kv_indeces: {len(kv_indices)}, {kv_indices}")
 
         # Radix Cache takes one ref in memory pool
         new_prefix_len = self.insert(token_ids, kv_indices.clone())
         self.token_to_kv_pool.free(kv_indices[len(req.prefix_indices) : new_prefix_len])
+        print(f"prefix_indices: {req.prefix_indices}, new_prefix_len: {new_prefix_len}")
 
         # The prefix indices could be updated, reuse it
         new_indices, new_last_node = self.match_prefix(token_ids)
@@ -245,6 +247,7 @@ class RadixCache(BasePrefixCache):
         if len(key) == 0:
             return 0
 
+        # Start from checking first token_id in key 
         if key[0] in node.children.keys():
             child = node.children[key[0]]
             prefix_len = _key_match(child.key, key)
