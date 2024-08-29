@@ -269,8 +269,6 @@ class TokenizerManager:
                 sampling_params,
             )
         
-        print("tokenized_obj = ", tokenized_obj)
-
         self.send_to_router.send_pyobj(tokenized_obj)
 
         event = asyncio.Event()

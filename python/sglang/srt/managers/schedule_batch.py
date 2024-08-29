@@ -133,7 +133,8 @@ class Req:
 
         # Prefix info
         self.extend_input_len = 0
-        self.prefix_indices = []
+        # I guess this contains tokens' kv cache indices that have already been computed
+        self.prefix_indices = [] 
         self.last_node = None
 
         # Sampling parameters
@@ -393,28 +394,58 @@ class ScheduleBatch:
         return out_cache_loc
 
     def prepare_for_extend(self, vocab_size: int):
+        """Prepare_for_extend
+
+        For reqs in this batch:
+         - assign a req_pool_idx to each req
+         - allocate kv cache space for each req (except for reusable tokens)
+        """
+
         bs = self.batch_size()
         reqs = self.reqs
+
+        # Get num tokens that need to be allocated new kv cache space.
+        # We don't need to count the tokens that can be reused(r.prefix_indices).
         input_ids = [r.fill_ids[len(r.prefix_indices) :] for r in reqs]
         extend_num_tokens = sum(len(ids) for ids in input_ids)
+
         seq_lens = []
 
         # Allocate memory
+        ## Allocate reqs
         req_pool_indices_cpu = self.alloc_req_slots(bs)
+        ## Allocate reqs' kv cache
         out_cache_loc = self.alloc_token_slots(extend_num_tokens)
 
         pt = 0
+
+        # For every request in this batch
         for i, req in enumerate(reqs):
+
+            # Get req_pool_idx which means which slot this req belongs to
             req.req_pool_idx = req_pool_indices_cpu[i]
+
+            # Get already-computed token indices, full token indices and 
+            # to-compute token indices
             pre_len, seq_len = len(req.prefix_indices), len(req.fill_ids)
             ext_len = seq_len - pre_len
             seq_lens.append(seq_len)
 
+            # For cache reuse part
+            #
+            # If this request has already-computed prefix, then
+            # copy prefix indices to its req_to_token pool.
+            # (Because every incoming req has new req_pool_idx, even if
+            # two reqs are exactly the same)
             if pre_len > 0:
                 self.req_to_token_pool.req_to_token[req.req_pool_idx][
                     :pre_len
                 ] = req.prefix_indices
 
+            # For non-reuse part
+            #
+            # Assign new allocated kv cache idx(out_cache_loc) to the remaining
+            # tokens which can not reuse previous kv cached.
             self.req_to_token_pool.req_to_token[req.req_pool_idx][pre_len:seq_len] = (
                 out_cache_loc[pt : pt + ext_len]
             )

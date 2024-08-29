@@ -110,9 +110,13 @@ class PrefillAdder:
     def __init__(
         self,
         tree_cache: BasePrefixCache,
+        # Total available kv cache size
         rem_total_tokens: int,
+        # Max prefill tokens
         rem_input_tokens: int,
+        # Chunk prefill token size
         rem_chunk_tokens: Optional[int],
+        # Decode tokens in running_batch
         mixed_with_decode_tokens: int = 0,
     ):
         self.tree_cache = tree_cache

@@ -543,11 +543,7 @@ class ModelRunner:
             batch,
             forward_mode=ForwardMode.EXTEND,
         )
-        print("==========================================")
-        logger.info(f"forward prefill called on {batch.input_ids} samples")
-        print('------------------------------------------')
-        logger.info(f"forward metadata: {input_metadata}")
-        print("==========================================")
+
         if self.is_generation:
             return self.model.forward(
                 batch.input_ids, input_metadata.positions, input_metadata

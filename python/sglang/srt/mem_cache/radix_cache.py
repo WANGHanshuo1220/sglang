@@ -119,7 +119,10 @@ class RadixCache(BasePrefixCache):
         self.dec_lock_ref(req.last_node)
 
     def cache_unfinished_req(self, req: Req, token_ids: Optional[List[int]] = None):
-        """Cache request when it is unfinished."""
+        """Cache request when it is unfinished. 
+        
+        This function should only be invoked by prefill requests???
+        """
         if self.disable:
             return
 
@@ -129,14 +132,14 @@ class RadixCache(BasePrefixCache):
         kv_indices = self.req_to_token_pool.req_to_token[
             req.req_pool_idx, : len(token_ids)
         ]
-        print(f"kv_indeces: {len(kv_indices)}, {kv_indices}")
 
         # Radix Cache takes one ref in memory pool
         new_prefix_len = self.insert(token_ids, kv_indices.clone())
         self.token_to_kv_pool.free(kv_indices[len(req.prefix_indices) : new_prefix_len])
-        print(f"prefix_indices: {req.prefix_indices}, new_prefix_len: {new_prefix_len}")
 
         # The prefix indices could be updated, reuse it
+        ## new_prefix_len is the prefix_reusable_length before insert
+        ## new_indices is the prefix_reusable_length after insert 
         new_indices, new_last_node = self.match_prefix(token_ids)
         assert len(new_indices) == len(token_ids)
         self.req_to_token_pool.req_to_token[
@@ -220,6 +223,12 @@ class RadixCache(BasePrefixCache):
             child = node.children[key[0]]
             prefix_len = _key_match(child.key, key)
             if prefix_len < len(child.key):
+                # Split original node to two nodes in order to 
+                # align prefill prompt to tree node
+                #
+                # Note that the difference with <insert> method is that when 
+                # there is a node mismatch <insert> method will not only split
+                # original node but also create a new node to store the new kv.
                 new_node = self._split_node(child.key, child, prefix_len)
                 value.append(new_node.value)
                 last_node[0] = new_node

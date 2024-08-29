@@ -406,9 +406,13 @@ class ModelTpServer:
         self.waiting_queue.append(req)
 
     def get_new_prefill_batch(self) -> Optional[ScheduleBatch]:
+
+        # Get self.running_batch request size
         running_bs = (
             len(self.running_batch.reqs) if self.running_batch is not None else 0
         )
+
+        # Check if we have enough available request slots to run new prefill requests
         if running_bs >= self.max_running_requests:
             return None
 

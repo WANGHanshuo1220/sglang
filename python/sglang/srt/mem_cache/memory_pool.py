@@ -28,6 +28,12 @@ class ReqToTokenPool:
     """A memory pool that maps a request to its token locations."""
 
     def __init__(self, size: int, max_context_len: int):
+        """ Initialize a TokenPool.
+
+        Args:
+            size (int): max_num_reqs
+            max_context_len (int): max length per request
+        """
         self.size = size
         self.free_slots = list(range(size))
         self.req_to_token = torch.empty(
@@ -61,6 +67,12 @@ class BaseTokenToKVPool(ABC):
         size: int,
         dtype: torch.dtype,
     ):
+        """ init a BaseTokenToKVPool.
+
+        Args:
+            size (int): total size of kv_cache
+            dtype (torch.dtype): data type for storage.
+        """
         self.size = size
         self.dtype = dtype
         if dtype == torch.float8_e5m2:
