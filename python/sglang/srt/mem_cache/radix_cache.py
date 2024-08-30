@@ -133,8 +133,17 @@ class RadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        # Radix Cache takes one ref in memory pool
+        # Insert this req into tree_cache
         new_prefix_len = self.insert(token_ids, kv_indices.clone())
+
+        # 0 ~ len(req.prefix_indices) is prefill reusable kv cache 
+        # length (already reuse in init_next_round_input)
+        #
+        # len(req.prefix_indices) ~ new_prefix_len is new reusable 
+        # kv cache length (because of prefill generation)
+        #
+        # new_prefix_len ~ len(req.token_ids) is remaining kv cache length
+        # that can not reuse previous kv cache
         self.token_to_kv_pool.free(kv_indices[len(req.prefix_indices) : new_prefix_len])
 
         # The prefix indices could be updated, reuse it
@@ -142,6 +151,11 @@ class RadixCache(BasePrefixCache):
         ## new_indices is the prefix_reusable_length after insert 
         new_indices, new_last_node = self.match_prefix(token_ids)
         assert len(new_indices) == len(token_ids)
+
+        # [len(req.prefix_indices):len(new_indices)] contains new reusable tokens 
+        # and non-reusable tokens
+        #
+        # should be [len(req.prefix_indices):new_prefix_len], but it's ok
         self.req_to_token_pool.req_to_token[
             req.req_pool_idx, len(req.prefix_indices) : len(new_indices)
         ] = new_indices[len(req.prefix_indices) :]
@@ -252,6 +266,19 @@ class RadixCache(BasePrefixCache):
         return new_node
 
     def _insert_helper(self, node: TreeNode, key: List, value):
+        """ Insert a seq into tree_cache
+
+        Args:
+            node (TreeNode): default is root node, but it's recursive
+            key (List): token_ids
+            value (List): kv indices of tokens
+
+        Returns:
+            int: prefix_match_length
+
+        Recursively insertion. Assign keys(token_ids) and values(kv indices) to 
+        tree_nodes, and split tree_node is necessary.
+        """
         node.last_access_time = time.time()
         if len(key) == 0:
             return 0
@@ -261,14 +288,20 @@ class RadixCache(BasePrefixCache):
             child = node.children[key[0]]
             prefix_len = _key_match(child.key, key)
 
+            # prefix_len == len(child.key) means this child node is perfectly matched
             if prefix_len == len(child.key):
+                # prefix_len == len(key) means they are perfectly aligned and 
+                # child node doesn't need to split
                 if prefix_len == len(key):
                     return prefix_len
                 else:
+                    # len(key) > len(child.key) && prefix_len == len(child.key)
+                    # need to recursively insert to child's child node
                     key = key[prefix_len:]
                     value = value[prefix_len:]
                     return prefix_len + self._insert_helper(child, key, value)
 
+            # prefix_len < len(child.key), so child node needs to split to match prefix
             new_node = self._split_node(child.key, child, prefix_len)
             return prefix_len + self._insert_helper(
                 new_node, key[prefix_len:], value[prefix_len:]

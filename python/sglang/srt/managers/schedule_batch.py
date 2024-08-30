@@ -132,7 +132,7 @@ class Req:
         self.pad_value = None
 
         # Prefix info
-        self.extend_input_len = 0
+        self.extend_input_len = 0 # The number of new tokens that have not been cached
         # I guess this contains tokens' kv cache indices that have already been computed
         self.prefix_indices = [] 
         self.last_node = None
@@ -169,6 +169,14 @@ class Req:
         return self.finished_reason is not None
 
     def init_next_round_input(self, tree_cache: Optional[BasePrefixCache] = None):
+        """ Init Next Round Input
+
+        This is the first time that the request is being preprocessed before execution.
+        The function will match the seq prefix for kv cache reuse and split tree node if
+        necessary.
+
+        At the end of this function, tree_cache's nodes will align to seq.
+        """
         self.fill_ids = self.origin_input_ids + self.output_ids
         if tree_cache is not None:
             self.prefix_indices, self.last_node = tree_cache.match_prefix(
@@ -394,7 +402,9 @@ class ScheduleBatch:
         return out_cache_loc
 
     def prepare_for_extend(self, vocab_size: int):
-        """Prepare_for_extend
+        """ Memory Allocation
+
+        This batch is prefill batch and has already been init next round input.
 
         For reqs in this batch:
          - assign a req_pool_idx to each req
